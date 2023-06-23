@@ -21,7 +21,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          components: rustfmt
+          components: rustfmt, clippy
           override: true
 
       - name: Build
