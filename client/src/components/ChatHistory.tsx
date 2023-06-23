@@ -1,6 +1,6 @@
-import { Message } from "../types/Message";
+import { MessageRender } from "../types/Message";
 
-const ChatHistory: React.FC<{ username: string; messages: Message[] }> = ({
+const ChatHistory: React.FC<{ username: string; messages: MessageRender[] }> = ({
   username: my_username,
   messages,
 }) => {

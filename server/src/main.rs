@@ -1,17 +1,60 @@
 use actix::{Actor, StreamHandler};
-use actix_web::{
-    get, middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
-};
+use actix_web::{get, middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use env_logger::Env;
 use log::info;
+use serde::{Deserialize, Serialize};
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    "Hello world".to_owned()
+#[derive(Serialize, Deserialize)]
+enum MessageType {
+    UserConnect,
+    UserDisconnect,
+    Text,
+    Error,
 }
 
-struct MyWs;
+#[derive(Serialize, Deserialize)]
+struct Message {
+    message_type: MessageType,
+    payload: String,
+}
+
+impl Message {
+    fn error(error_message: &str) -> Message {
+        Message {
+            message_type: MessageType::Error,
+            payload: error_message.to_string(),
+        }
+    }
+
+    fn serde_error(error_message: &str) -> String {
+        let error = Message::error(error_message);
+        let error_string = serde_json::to_string(&error).unwrap();
+        return error_string;
+    }
+}
+
+#[derive(Debug)]
+pub struct User {
+    pub user_id: u32,
+    pub username: String,
+}
+
+impl User {
+    fn new(user_id: u32, username: String) -> Self {
+        Self { user_id, username }
+    }
+}
+
+struct MyWs {
+    users: Vec<User>,
+}
+
+impl MyWs {
+    fn new() -> Self {
+        Self { users: Vec::new() }
+    }
+}
 
 impl Actor for MyWs {
     type Context = ws::WebsocketContext<Self>;
@@ -20,8 +63,21 @@ impl Actor for MyWs {
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWs {
     fn handle(&mut self, item: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         if let Ok(ws::Message::Text(text)) = item {
-            info!("Text received from websockets connection: {text}");
-            ctx.text(text)
+            if let Ok(message) = serde_json::from_str::<Message>(&text) {
+                match message.message_type {
+                    MessageType::UserConnect => {
+                        let user = User::new(self.users.len() as u32, message.payload);
+                        self.users.push(user);
+                    }
+                    MessageType::Text => {}
+                    _ => {
+                        return ctx.text(Message::serde_error("Unknown message received"));
+                    }
+                }
+                info!("USERS: {:?}", self.users);
+            } else {
+                return ctx.text(Message::serde_error("Failed to extract text"));
+            }
         }
     }
 }
@@ -31,24 +87,22 @@ async fn web_socket(
     request: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, actix_web::Error> {
-    if let Some(host) = request.headers().get("host") {
-        info!("Websockets connection established with host: {:?}", host);
-    } else {
-        info!("Websockets connection established");
-    }
-    ws::start(MyWs, &request, stream)
+    let host = request
+        .headers()
+        .get("host")
+        .map(|h| h.to_str().unwrap_or(""))
+        .unwrap();
+    let ip = request.connection_info().peer_addr().unwrap().to_owned();
+    let time = chrono::Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    info!("Websockets connection established with host ({host:?}) and ip ({ip}) - {time}");
+    ws::start(MyWs::new(), &request, stream)
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("info"));
-    HttpServer::new(move || {
-        App::new()
-            .wrap(Logger::default())
-            .service(hello)
-            .service(web_socket)
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+    HttpServer::new(move || App::new().wrap(Logger::default()).service(web_socket))
+        .bind(("127.0.0.1", 8080))?
+        .run()
+        .await
 }

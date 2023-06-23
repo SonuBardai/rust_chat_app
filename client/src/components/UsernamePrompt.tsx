@@ -7,7 +7,7 @@ const UsernamePrompt: React.FC<{
 }> = ({ username, setUsername, handleSetUsername }) => {
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="p-8 bg-white rounded-md shadow">
+      <form className="p-8 bg-white rounded-md shadow">
         <h2 className="text-lg font-bold mb-4">Enter your username</h2>
         <input
           type="text"
@@ -21,7 +21,7 @@ const UsernamePrompt: React.FC<{
         >
           Submit
         </button>
-      </div>
+      </form>
     </div>
   );
 };
