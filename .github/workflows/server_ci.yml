@@ -1,0 +1,33 @@
+name: Server CI
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        toolchain: [stable, beta, nightly]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+
+      - name: Build
+        working-directory: server
+        run: cargo build --verbose
+
+      - name: Check formatting
+        working-directory: server
+        run: cargo fmt -- --check
+
+      - name: Run linter
+        working-directory: server
+        run: cargo clippy -- -D warnings
