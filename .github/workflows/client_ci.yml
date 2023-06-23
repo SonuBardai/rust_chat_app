@@ -20,7 +20,7 @@ jobs:
 
       - name: Check formatting
         working-directory: client
-        run: npm run format-check
+        run: npx prettier --check .
 
       - name: Run linter
         working-directory: client
