@@ -7,13 +7,14 @@ import ChatHistory from "./ChatHistory";
 import ErrorBox, { ErrorBoxProps } from "./ErrorBox";
 import UsernamePrompt from "./UsernamePrompt";
 
-const ChatWindow: React.FC = () => {
+const ChatWindow: React.FC<{ WEBSOCKET_SERVER: string }> = ({
+  WEBSOCKET_SERVER,
+}) => {
   const [messages, setMessages] = useState<MessageRender[]>([]);
   const [username, setUsername] = useState("");
   const [showPrompt, setShowPrompt] = useState(true);
   const [error, setError] = useState<ErrorBoxProps | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
-  const WEBSOCKET_SERVER = "ws://localhost:8080/ws";
 
   useEffect(() => {
     setSocket(new WebSocket(WEBSOCKET_SERVER));
@@ -32,6 +33,16 @@ const ChatWindow: React.FC = () => {
           case MessageType.Error:
             setError({ message: message.payload });
             break;
+          case MessageType.NewUser:
+            setMessages([
+              ...messages,
+              {
+                message: `New user ${message.payload} has joined the chat! `,
+                message_type: message.message_type,
+                user: "", // system message
+              },
+            ]);
+            return;
           case MessageType.Text:
             return;
           default:
@@ -42,18 +53,25 @@ const ChatWindow: React.FC = () => {
         setError({ message: "Connection lost with server" });
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket]);
 
   const handleSetUsername = (username: string) => {
     setUsername(username);
     setShowPrompt(false);
     socket?.send(
-      JSON.stringify({ message_type: "UserConnect", payload: username })
+      JSON.stringify({
+        message_type: MessageType.UserConnect,
+        payload: username,
+      })
     );
   };
 
   const handleSendMessage = (message: string) => {
-    setMessages((messages) => [...messages, { user: username, message }]);
+    setMessages((messages) => [
+      ...messages,
+      { user: username, message, message_type: MessageType.Text },
+    ]);
   };
 
   return (

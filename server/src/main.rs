@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    env,
+    sync::{Arc, Mutex},
+};
 
 use actix::{Actor, StreamHandler};
 use actix_web::{get, middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer};
@@ -13,6 +16,7 @@ enum MessageType {
     UserDisconnect,
     Text,
     Error,
+    NewUser,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,9 +38,17 @@ impl Message {
 
         serde_json::to_string(&error).unwrap()
     }
+
+    fn serde_new_user(username: String) -> String {
+        let message = Self {
+            message_type: MessageType::NewUser,
+            payload: username,
+        };
+        serde_json::to_string(&message).unwrap()
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct User {
     pub user_id: u32,
     pub username: String,
@@ -66,12 +78,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWs {
     fn handle(&mut self, item: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         if let Ok(ws::Message::Text(text)) = item {
             if let Ok(message) = serde_json::from_str::<Message>(&text) {
-                info!("Message: {message:?}");
                 match message.message_type {
                     MessageType::UserConnect => {
                         let user =
                             User::new(self.users.lock().unwrap().len() as u32, message.payload);
-                        self.users.lock().unwrap().push(user);
+                        self.users.lock().unwrap().push(user.clone());
+                        ctx.text(Message::serde_new_user(user.username))
                     }
                     MessageType::Text => {}
                     _ => ctx.text(Message::serde_error("Unknown message received")),
@@ -114,6 +126,12 @@ impl AppState {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv::dotenv().ok();
+    let host = env::var("HOST").expect("HOST must be set");
+    let port: u16 = env::var("PORT")
+        .expect("PORT must be set")
+        .parse()
+        .expect("Enter a valid port number");
     env_logger::init_from_env(Env::default().default_filter_or("debug"));
     let app_state = web::Data::new(AppState::new());
     HttpServer::new(move || {
@@ -122,7 +140,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(app_state.clone())
             .service(web_socket)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((host, port))?
     .run()
     .await
 }

@@ -10,10 +10,15 @@ const ChatHistory: React.FC<{
         <li
           key={index}
           className={
-            message.user === my_username ? "mb-2 text-right" : "mb-2 text-left"
+            message.user === my_username
+              ? "mb-2 text-right"
+              : message.user === ""
+              ? "mb-2 text-sm text-center"
+              : "mb-2 text-left"
           }
         >
-          <div className="font-bold">{message.user}:</div> {message.message}
+          {message.user && <div className="font-bold">{message.user}: </div>}
+          {message.message}
         </li>
       ))}
     </ul>
