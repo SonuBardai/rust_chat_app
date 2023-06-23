@@ -31,8 +31,8 @@ impl Message {
 
     fn serde_error(error_message: &str) -> String {
         let error = Message::error(error_message);
-        let error_string = serde_json::to_string(&error).unwrap();
-        return error_string;
+        
+        serde_json::to_string(&error).unwrap()
     }
 }
 
@@ -75,11 +75,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWs {
                     }
                     MessageType::Text => {}
                     _ => {
-                        return ctx.text(Message::serde_error("Unknown message received"));
+                        ctx.text(Message::serde_error("Unknown message received"))
                     }
                 }
             } else {
-                return ctx.text(Message::serde_error("Failed to extract text"));
+                ctx.text(Message::serde_error("Failed to extract text"))
             }
         }
     }
