@@ -3,7 +3,7 @@ name: Server CI
 on: [push]
 
 jobs:
-  build:
+  server_build:
     strategy:
       matrix:
         toolchain: [stable, beta, nightly]

@@ -3,7 +3,7 @@ name: Client CI
 on: [push]
 
 jobs:
-  build:
+  client_build:
     runs-on: ubuntu-latest
 
     steps:
